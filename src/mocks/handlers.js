@@ -1,20 +1,16 @@
 // handlers.js
 import { rest } from "msw";
-import getPeople1 from "./fixtures/getPeople1.json";
+import getCharacter from "./fixtures/getCharacter.json";
 
-const getPeopleFr = rest.get("https://swapi.dev/api/people/1", (req, res, ctx) => {
-  const getPeopleData = structuredClone(getPeople1);
-  getPeopleData.name = "Luc Marcheur du ciel";
-  return res(ctx.status(200), ctx.json(getPeopleData));
+const getPeople = rest.get("https://the-one-api.dev/v2/character", (req, res, ctx) => {
+  return res(ctx.status(200), ctx.json(getCharacter));
 });
 
-const getPeopleIt = rest.get("https://swapi.dev/api/people/1", (req, res, ctx) => {
-  const getPeopleData = structuredClone(getPeople1);
-  getPeopleData.name = "Lucas Camminatore del cielo";
-  return res(ctx.status(200), ctx.json(getPeopleData));
+const getPeopleError = rest.get("https://the-one-api.dev/v2/character", (req, res, ctx) => {
+  return res(ctx.status(500));
 });
 
 export const handlers = {
-  getPeopleFr,
-  getPeopleIt,
+  getPeople,
+  getPeopleError,
 };
