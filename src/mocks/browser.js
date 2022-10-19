@@ -5,4 +5,4 @@ import { handlers } from "./handlers";
 export const worker = setupWorker();
 register(worker, handlers);
 
-setScenario("getPeopleError");
+setScenario("getPeople");

@@ -8,17 +8,37 @@ body{
 
 ul{
   list-style: none;
-  width: 400px;
+  width: 600px;
   margin: auto;
 }
 
 li{
   font-size: 2rem;
   display: inline-block;
+  background-color: white;
+  padding: 10px 20px;
+  border-radius: 10px;
+  margin: 10px;
 }
 
 img{
   max-width: 50%;
   margin: auto;
   margin-top: 100px;
+}
+
+a{
+  text-decoration: none;
+}
+
+h2{
+  font-size : 3rem;
+  animation: blinker 1s linear infinite;
+
+}
+
+@keyframes blinker {
+  50% {
+    opacity: 0;
+  }
 }

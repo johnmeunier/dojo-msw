@@ -3,7 +3,7 @@ import { rest } from "msw";
 import getCharacter from "./fixtures/getCharacter.json";
 
 const getPeople = rest.get("https://the-one-api.dev/v2/character", (req, res, ctx) => {
-  return res(ctx.status(200), ctx.json(getCharacter));
+  return res(ctx.status(200), ctx.delay(1000), ctx.json(getCharacter));
 });
 
 const getPeopleError = rest.get("https://the-one-api.dev/v2/character", (req, res, ctx) => {

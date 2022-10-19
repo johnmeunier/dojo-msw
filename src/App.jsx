@@ -37,11 +37,12 @@ const App = () => {
   useEffect(() => {
     retrievePeople1();
   }, []);
-
   return (
     <div className="App">
       <h1>LOTR characters</h1>
-      {!error ? (
+      {error ? (
+        <img src={sauron} alt="sauron eye" />
+      ) : people.length > 0 ? (
         <ul>
           {people.map((person) => (
             <li key={person._id}>
@@ -51,7 +52,7 @@ const App = () => {
           ))}
         </ul>
       ) : (
-        <img src={sauron} alt="sauron eye" />
+        <h2>Loading</h2>
       )}
     </div>
   );
