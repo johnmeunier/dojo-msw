@@ -1,7 +1,8 @@
-#front #dojo #msw #test #mock #wip
+#front #dojo #msw #test #mock #wip #talk
 
-# Dojo : 
-## Mock
+# Maîtriser les mocks de données en front !
+
+## Introduction
 ### Qu'est ce qu'un mock ? 
 Un mock est une simulation de ce qui se produirait dans un état normal, sans mock.
 
@@ -39,11 +40,11 @@ Tous les appels ne seront pas interceptés, seulement ceux déclarés dans le wo
 
 Bien évidemment, le code de mock ne sera pas dans le build final.
 
-## Installation
+### Installation
 [Doc officielle](https://mswjs.io/docs/getting-started/integrate/browser)
 [Un projet complet d'exemple avec vitejs, msw et msw-ui, découpé par commit](https://github.com/johnmeunier/dojo-msw)
 
-### Front
+#### Front
 ```shell
 npm install msw --save-dev
 npm install cross-env --save-dev
@@ -105,7 +106,7 @@ if (process.env.REACT_APP_MOCK_ENABLED === 'true') {
 
 [build: ajout de msw côté client](https://github.com/johnmeunier/dojo-msw/commit/a6111d3ea85d6efab63a2c88922e65862b5b7144)
 
-### Test
+#### Test
 ```shell
 touch src/mocks/server.js
 ```
@@ -139,9 +140,8 @@ afterEach(() => {
 ```
 
 
-## Utilisation
-### Front
-####  Request handler
+### Utilisation Front
+####  Intercepter une requête : Request handler
 ##### Verb
 - rest.get()
 - rest.post()
@@ -164,10 +164,10 @@ rest.get("https://une.url/:documentId", (req, res, ctx) => {
 ##### URL
 - URL exacte :  `https://api.backend.dev/users`
 - Path with wildcard :  `users/*`
-- Path with parameters : `https://api.backend.dev/user/:userId` Le paramètre userId sera ensuite récupérable (req.params)
-- Regexp : `/\/posts\//`
+- Path with parameters : `https://api.backend.dev/users/:userId` Le paramètre userId sera ensuite récupérable (req.params)
+- Regexp : `/\/users\//`
 
-#### Response resolver
+#### Répondre à une requête : Response resolver
 Voici un exemple complet que l'on va détailler : 
 ```js
 
@@ -224,7 +224,7 @@ res(ctx.status(200), ctx.delay(300), ctx.json({"id": 42}))
 
 Un délai de 300ms sera ajouté à la réponse.
 
-##### Autre chose qu'une 200
+###### Autre chose qu'une 200
 Le statut peut également être autre chose que 200. Vous pouvez donc simuler très facilement des cas d'erreur comme des 400, des 404 ou pire, des 500. vous pouvez également rendre plus précis des réponses ok avec des 204 par exemple. Pensez à ajouter le contenu de la réponse avec des précisions sur l'erreur, comme votre API le renverrait.
 
 ##### Organiser vos réponses
@@ -262,12 +262,22 @@ import {getDocuments} from './fixtures/getDocuments'
 // ...
 rest.post(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId/search-documents`, (req, res, ctx) => {
 	getDocuments.response.documents.sort(() => Math.random() - 0.5);
-	return res(ctx.status(200), ctx.json(postSearchDocuments));
+	return res(ctx.status(200), ctx.json(getDocuments));
 }),
 // ...
 ```
 
 En fin de compte, vous pouvez faire ce que vous souhaitez dans la réponse.
+
+##### Renseigner des headers
+MSW vous propose évidement de renseigner des headers en passant à la méthode `ctx.set()` un objet.
+
+``` javascript
+ctx.set({
+	'correlation-id': '2df53555-7058-4122-5c6d-000023c1681c',
+	'feature': 'name=MY_PRODUCT',
+})
+```
 
 ##### Renvoyer une réponse différente au premier appel
 Il est parfois utile d'envoyer qu'une seule fois une réponse, puis une réponse différentes les fois d'autres. 
@@ -294,7 +304,7 @@ rest.get("/quote/:id", (req, res, ctx) => {
 ),
 ```
 
-### Test 
+### Dans les tests 
 Dans les tests, pourquoi ne pas mocker directement Axios ? Dans tous les cas il faut éviter de mocker une librairie. Vous créez une importante dépendance à cette librairie. Si par exemple vous souhaitez retourner sur fetch ou sur une autre librairie, vous devriez retravailler tous les tests.
 
 Vous pouvez surcharger les mocks dans les tests spécifiquement 
@@ -312,6 +322,8 @@ server.use(
 );
 // ... 
 ```
+
+Si vous faîtes des tests d'intégration avec du gherkin en utilisant par exemple jest-cucumber, tout prend sens.
 
 Il est idéal d'intégrer ces surcharges dans des steps : 
 
@@ -445,6 +457,92 @@ export default App;
 
 [feat(msw): ajout de msw-ui](https://github.com/johnmeunier/dojo-msw/commit/371ebebb9bdad3a3276040fab6ce77af608ae19c)
 
+## Et si on créait des scénarios complets ?
+Maintenant que l'on sait créer des handlers uniques pour chaque appels, pourquoi ne pas créer des scénarios complets, correspondant à des états différents de notre application. De façon générique, voici quelques exemples pour un projets de gestions de contenus : 
+- Je crée du nouveau contenu
+- J'ai déjà créé du contenu
+- Je n'ai pas les droits 
+- Mes appels API partent en erreurs
+
+Ces exemples sont très génériques, selon votre application, il existe plein de possibilité. 
+Voici un exemple d'implémentation avec msw-ui : 
+
+```javascript
+// handlers.js
+export const handlers = {
+	getQuote: rest.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
+		res(ctx.delay(), ctx.status(200), ctx.json(getQuote)),
+	),
+	getQuoteReprise: rest.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
+		res(ctx.delay(), ctx.status(200), ctx.json(getQuoteReprise)),
+	),
+	getQuote500: rest.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
+		res(ctx.delay(), ctx.status(500), ctx.json(getQuote500))
+	),
+	getProducts: rest.get(`${conf.referentielProduitsUrl}/products`, (req, res, ctx) =>
+		res(ctx.status(200), ctx.json(getProducts)),
+	),
+	// ...
+}
+
+export const mockNew : () => {
+	['getQuote', 'getProducts'].forEach(id => setScenario(id));
+}
+
+export const mockReprise : () => {
+	['getQuoteReprise', 'getProducts'].forEach(id => setScenario(id));
+}
+
+export const mockError : () => {
+	['getQuote500', 'getProducts'].forEach(id => setScenario(id));
+}
+```
+
+```javascript
+// browser.js
+import { setupWorker } from 'msw';
+import { register } from 'msw-ui';
+import { handlers, mockError } from './handlers';
+
+export const worker = setupWorker();
+
+register(worker, handlers);
+
+mockError();
+```
+
+Dans ce scénario, l'application démarrera en erreur sur l'appel permettant de récupérer une `quote`.
+
+Libre à vous de développer des dev tools, vous permettant de switcher à la volée entre ces scénarios.
+
+Cette logique est également applicable si vous n'utilisez pas `msw-ui`.
+
+## Jusqu'où doit-on aller dans les mocks
+Comme vous l'avez compris, un mock est une réponse statique, sans intelligence ni logique métier. Cependant, le principe est de rendre nos applications durant le développement le plus utilisable possible, dans des conditions le plus proche possible de la production. 
+
+Il ne faut en aucun cas écrire tout ce qu'une API pourrait faire, implémenter de la logique métier etc. 
+
+Le plus compliqué est de réussir à écrire le moins de logique possible afin de rendre notre application fonctionnel, pour les démos ou simplement pour pouvoir développer sereinement. 
+
+Un exemple simple, est par exemple de rendre mutable les données récupérés en `get` si elles peuvent être modifié par un `put` : 
+
+```javascript
+import getQuote from './fixtures/getQuote.json';
+
+let quote = getQuote;
+
+export const handlers = [
+	rest.get(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
+		res(ctx.status(200), ctx.json(quote)),
+	),
+	rest.put(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) => {
+		quote = JSON.parse(req.body).request;
+		return res(ctx.status(200), ctx.json(quote));
+	})
+]
+```
+
+## Développer avant l'API
 ## Cohabitation avec l'authentification
 Les services workers ont une spécificité : plusieurs ne peuvent être enregistrés sur le même scope. Cela peut poser plusieurs problèmes notamment si vous utilisez le service d'authentification [auth-worker](https://github.com/AxaGuilDEv/auth-worker)
 
