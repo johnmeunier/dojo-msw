@@ -1,0 +1,1 @@
+export { Pokemon } from "./Pokemon";
