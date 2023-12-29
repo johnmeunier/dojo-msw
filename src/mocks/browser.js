@@ -1,8 +1,5 @@
-import { setupWorker } from "msw";
-import { register } from "msw-ui";
-import { handlers } from "./handlers";
-
-export const worker = setupWorker();
-register(worker, handlers);
-
-setScenario("getPeople");
+// src/mocks/browser.js
+import { setupWorker } from 'msw/browser'
+import { handlers } from './handlers'
+ 
+export const worker = setupWorker(...handlers)
