@@ -58,12 +58,12 @@ Cross-env permet de supporter les variables d'environnements sur différentes pl
 
 ```js
 // handlers.js
-import { rest } from 'msw';
+import { http, HttpResponse } from "msw";
 export const handlers = [
-	rest.get('/quote', {
+	http.get("quote", async () => HttpResponse.json({
 		"an": "awesome",
 		"data": "quote"
-	}),
+	}, { status: 200 }))
 ];
 ```
 
@@ -143,20 +143,19 @@ afterEach(() => {
 ### Utilisation Front
 ####  Intercepter une requête : Request handler
 ##### Verb
-- rest.get()
-- rest.post()
-- rest.put()
-- rest.patch()
-- rest.delete()
-- rest.options()
+- http.get()
+- http.post()
+- http.put()
+- http.patch()
+- http.delete()
+- http.options()
 
 Ces méthodes prennent deux paramètres : une URL et un callback que l'on détaillera dans la partie [[#Response resolver]].
 
 Par exemple : 
 ```js
-
-rest.get("https://une.url/:documentId", (req, res, ctx) => {
-	//...
+http.get("[quote](https://une.url/:documentId)", async () => {
+	// ...
 })
 
 ```
@@ -171,32 +170,27 @@ rest.get("https://une.url/:documentId", (req, res, ctx) => {
 Voici un exemple complet que l'on va détailler : 
 ```js
 
-rest.get("https://une.url/:documentId", (req, res, ctx) => {
-	switch (req.params.documentId) {
+http.get("https://une.url/:documentId", ({request, params, cookie}) => {
+	switch (params.documentId) {
 		case 'id1':
-			return res(ctx.status(200), ctx.json({"doc" : 1}));
+			return HttpResponse.json({"doc": 1}, { status: 200 });
 		case 'id2':
-			return res(ctx.status(200), ctx.json({"doc" : 2}));
+			return HttpResponse.json({"doc": 2}, { status: 200 });
 		case 'id3':
-			return res(ctx.status(200), ctx.json({"doc": 3}));
+			return HttpResponse.json({"doc": 3}, { status: 200 });
 		default:
-			return res(ctx.status(404));
-		
+			return HttpResponse(null, {
+      status: 404,
+      statusText: 'Not found',
+    	})
 		}
 })
 
 ```
 
-Le callback prend 3 paramètres :
-| Parameter name                            | Description                                |
-| ----------------------------------------- | ------------------------------------------ |
-| [req](https://mswjs.io/docs/api/request)  | Information sur la requête capturée        |
-| [res](https://mswjs.io/docs/api/response) | Fonction pour créer le mock                |
-| [ctx](https://mswjs.io/docs/api/context)  | Fonction de transformation pour la réponse |
-
-La plupart du temps, il suffit de renseigner le statut et le contenu du body
+La plupart du temps, il suffit de renvoyer une réponse avec le contenu et le status
 ```js
-res(ctx.status(200), ctx.json({"id": 42}))
+	HttpResponse.json({"id": 42}, { status: 200 });
 ```
 
 Dans cet exemple, on renvoie une 200 avec comme contenu un objet contenant simplement la clé `id` qui aura la valeur `42`.
@@ -219,7 +213,7 @@ et essayer de le mocker.
 Il peut parfois être utile d'ajouter du délai pour simuler un spinner par exemple, avec le même exemple que précedemment : 
 
 ```js
-res(ctx.status(200), ctx.delay(300), ctx.json({"id": 42}))
+    await delay(300);
 ```
 
 Un délai de 300ms sera ajouté à la réponse.
@@ -234,22 +228,6 @@ Par convention, nous stockons sous la forme `[verbHTTP][ressource].json`.
 
 Par exemple, si j'essaie de récupérer un devis (quote) : `getQuote.json`, si je souhaite mocker la réponse à une mise à jour d'un document : `putDocument.json`. Si beaucoup de verbes sont mockés pour un même appel, il ne faut pas hésiter à créer un dossier par ressource. 
 
-```json
-// src/mocks/fixtures/getQuote.json
-{
-	response: {
-		"value": 42
-	}
-}
-```
-
-```js
-rest.get(`${conf.apiEbusinessUrl}/quotes/:quoteId`, (req, res, ctx) =>
-	res(ctx.status(200), ctx.json(getQuote)),
-),
-```
-
-Préciser qu'il "faut" découper les handlers / fixtures selon le besoin. Voir exemple PEMA
 
 ##### Réponse complexe
 Votre réponse peut être plus complexe. 
@@ -260,9 +238,9 @@ Vous pouvez par exemple renvoyer des résultats aléatoires :
 import {getDocuments} from './fixtures/getDocuments'
 
 // ...
-rest.post(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId/search-documents`, (req, res, ctx) => {
+http.post(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId/search-documents`, () => {
 	getDocuments.response.documents.sort(() => Math.random() - 0.5);
-	return res(ctx.status(200), ctx.json(getDocuments));
+	return HttpResponse.json(getDocuments, { status: 200 });
 }),
 // ...
 ```
@@ -272,11 +250,21 @@ En fin de compte, vous pouvez faire ce que vous souhaitez dans la réponse.
 ##### Renseigner des headers
 MSW vous propose évidement de renseigner des headers en passant à la méthode `ctx.set()` un objet.
 
+Avec notre exemple précédent : 
+
+
+
 ``` javascript
-ctx.set({
-	'correlation-id': '2df53555-7058-4122-5c6d-000023c1681c',
-	'feature': 'name=MY_PRODUCT',
-})
+http.post(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId/search-documents`, () => {
+	getDocuments.response.documents.sort(() => Math.random() - 0.5);
+	return HttpResponse.json(getDocuments, { 
+		status: 200, 
+		headers : {
+			'correlation-id': '2df53555-7058-4122-5c6d-000023c1681c',
+			'feature': 'name=MY_PRODUCT',
+		} 
+	});
+}),
 ```
 
 ##### Renvoyer une réponse différente au premier appel
@@ -284,24 +272,30 @@ Il est parfois utile d'envoyer qu'une seule fois une réponse, puis une réponse
 
 Par exemple pour imiter un recalcul de tarification, qui devrait donc changer à chaque demande.
 
-La méthode `res.once()` permet de le faire.
+```js
+http.get("/quote/:id",() => {
+		getQuote.anyValue = "1st time";
+		return HttpResponse.json(getQuote)
+	},
+	{ once: true }
+)
+```
 
 ```js
-rest.get("/quote/:id", (req, res, ctx) => {
-		getQuote.anyValue = "1st time";
-		return res.once(ctx.status(200), ctx.json(getQuote))
-	}
-),
-rest.get("/quote/:id", (req, res, ctx) => {
+http.get("/quote/:id",() => {
 		getQuote.anyValue = "2nd time";
-		return res.once(ctx.status(200), ctx.json(getQuote))
-	}
-),
-rest.get("/quote/:id", (req, res, ctx) => {
+		return HttpResponse.json(getQuote)
+	},
+	{ once: true }
+)
+```
+
+```js
+http.get("/quote/:id",() => {
 		getQuote.anyValue = "All others times";
-		return res(ctx.status(200), ctx.json(getQuote))
+		return HttpResponse.json(getQuote)
 	}
-),
+)
 ```
 
 ### Dans les tests 
@@ -315,10 +309,8 @@ import { server } from 'mocks/server';
 
 // ...
 server.use(
-	rest.put(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) => res(ctx.status(200))),
-	rest.post(`${conf.apiEbusinessUrl}/parameters`, (req, res, ctx) =>
-		res(ctx.status(200), ctx.json(getParametersMachineDeductibleAmountList)),
-	),
+		// ...
+	)
 );
 // ... 
 ```
@@ -330,7 +322,7 @@ Il est idéal d'intégrer ces surcharges dans des steps :
 ```javascript
 given('Je charge un devis en reprise', async () => {
 	server.use(
-		rest.get("/insurance-quotes/:quoteId", (req, res, ctx) => res(ctx.status(200), ctx.json(getQuoteReprise))),
+		http.get("/insurance-quotes/:quoteId", () => HttpResponse.json(getQuote))),
 	);
 });
 ```
@@ -360,11 +352,11 @@ const givenDevisWithFranchiseLimit = given => {
 		const offersCopy = cloneDeep(getOffers);
 		set(offersCopy, deductibleMinValuePath, deductibleMinValue);
 		server.use(
-			rest.post("/insurancequotes/:quoteId", (req, res, ctx) => 
-				res(ctx.status(200), ctx.json(getOffers)),
+			http.post("/insurancequotes/:quoteId", (req, res, ctx) => 
+				HttpResponse.json((getOffers)),
 			),
-			rest.get(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) => 
-				res(ctx.status(200), ctx.json(getQuote)),
+			http.get(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) => 
+				HttpResponse.json((getQuote)),
 			),
 		);
 	});
@@ -374,88 +366,6 @@ const givenDevisWithFranchiseLimit = given => {
 Dans cet exemple complet, on charge un devis via la première step Given. 
 Ce devis vient d'un fichier json (getOffers). Tout le devis n'est pas stocké dans le .feature, ce serait bien trop lourd à gérer. Le fichier json est un devis générique, qui sera surchargé via les données renseignées dans le .feature.
 On opère une copie de ce devis et on modifie une de ses clès en remplacant sa valeur par celle récupéré dans l'itération en cours de notre test, issue du .feature (deductibleMinValue).
-
-## MSW-UI
-MSW-UI est une extension qui fonctionne au dessus de MSW et qui permet de changer les mocks utilisés directement depuis le front, sans devoir relancer le serveur et sans interragir avec le code
-
-Dans un premier temps, il faut ajouter le package en devDependencies : 
-
-```shell
-pnpm install msw-ui -D 
-```
-
-Il faut désormais exporter chaque scénario : 
-
-```js
-const getPeopleFr = rest.get("https://swapi.dev/api/people/1", (req, res, ctx) => {
-	const getPeopleData = structuredClone(getPeople1);
-	getPeopleData.name = "Luc Marcheur du ciel";
-	return res(ctx.status(200), ctx.json(getPeopleData));
-});
-
-const getPeopleIt = rest.get("https://swapi.dev/api/people/1", (req, res, ctx) => {
-	const getPeopleData = structuredClone(getPeople1);
-	getPeopleData.name = "Lucas Camminatore del cielo";
-	return res(ctx.status(200), ctx.json(getPeopleData));
-});
-```
-
-Et les exporter sous la forme d'un objet, et non plus un tableau : 
-
-```js
-export const handlers = { getPeopleFr, getPeopleIt };
-```
-
-La configuration côté navigateur changé également un petit peu : 
-
-```js
-import { setupWorker } from "msw";
-import { register } from "msw-ui";
-import { handlers } from "./handlers";
-export const worker = setupWorker();
-register(worker, handlers);
-```
-
-Côté client, il suffit d'appeler la méthode `setScenario` pour choisir quel scénario sera utilisé, si cet méthode n'est pas utilisé au moins une fois, sur l'appel que l'on souhaite mocker, il ne sera pas mocké, voici un exemple complet d'une page : 
-
-```js
-import React, { useState, useEffect } from "react";
-import { setScenario } from "msw-ui";
-
-const App = () => {
-	const [name, setName] = useState("");
-
-	const retrievePeople1 = () => {
-		fetch("https://swapi.dev/api/people/1").then((res) => {
-			res.json().then((data) => setName(data.name));
-		});
-	};
-
-	useEffect(() => {
-		retrievePeople1();
-	}, []);
-
-	return (
-		<div className="App">
-			<h1>{name}</h1>
-			<button
-				onClick={() => {
-					setScenario("getPeopleFr");
-					retrievePeople1();
-				}}> Fr version </button>
-			<button
-				onClick={() => {
-					setScenario("getPeopleIt");
-					retrievePeople1();
-				}}> It version </button>
-		</div>
-	);
-};
-
-export default App;
-```
-
-[feat(msw): ajout de msw-ui](https://github.com/johnmeunier/dojo-msw/commit/371ebebb9bdad3a3276040fab6ce77af608ae19c)
 
 ## Et si on créait des scénarios complets ?
 Maintenant que l'on sait créer des handlers uniques pour chaque appels, pourquoi ne pas créer des scénarios complets, correspondant à des états différents de notre application. De façon générique, voici quelques exemples pour un projets de gestions de contenus : 
@@ -470,59 +380,27 @@ Voici un exemple d'implémentation avec msw-ui :
 ```javascript
 // handlers.js
 export const handlers = {
-	getQuote: rest.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
-		res(ctx.delay(), ctx.status(200), ctx.json(getQuote)),
+	getQuote: http.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, () =>
+		HttpResponse.json(getQuote),
 	),
-	getQuoteReprise: rest.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
-		res(ctx.delay(), ctx.status(200), ctx.json(getQuoteReprise)),
+	getQuoteReprise: http.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, () =>
+		HttpResponse.json(getQuoteReprise),
 	),
-	getQuote500: rest.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
-		res(ctx.delay(), ctx.status(500), ctx.json(getQuote500))
-	),
-	getProducts: rest.get(`${conf.referentielProduitsUrl}/products`, (req, res, ctx) =>
-		res(ctx.status(200), ctx.json(getProducts)),
+	getQuote500: http.get(`${conf.apiUrl}/insurance-quotes/:quoteId`, () =>
+		HttpResponse.json(getQuote500, {status: 500}),
 	),
 	// ...
 }
-
-export const mockNew : () => {
-	['getQuote', 'getProducts'].forEach(id => setScenario(id));
-}
-
-export const mockReprise : () => {
-	['getQuoteReprise', 'getProducts'].forEach(id => setScenario(id));
-}
-
-export const mockError : () => {
-	['getQuote500', 'getProducts'].forEach(id => setScenario(id));
-}
 ```
 
-```javascript
-// browser.js
-import { setupWorker } from 'msw';
-import { register } from 'msw-ui';
-import { handlers, mockError } from './handlers';
-
-export const worker = setupWorker();
-
-register(worker, handlers);
-
-mockError();
-```
-
-Dans ce scénario, l'application démarrera en erreur sur l'appel permettant de récupérer une `quote`.
-
-Libre à vous de développer des dev tools, vous permettant de switcher à la volée entre ces scénarios.
-
-Cette logique est également applicable si vous n'utilisez pas `msw-ui`.
+Il sera beaucoup plus facile d'appeler le bon scénario aussi bien en dev qu'en test avec un `handlers.getQuote` ou un `handlers.getQuote500`.
 
 ## Jusqu'où doit-on aller dans les mocks
 Comme vous l'avez compris, un mock est une réponse statique, sans intelligence ni logique métier. Cependant, le principe est de rendre nos applications durant le développement le plus utilisable possible, dans des conditions le plus proche possible de la production. 
 
 Il ne faut en aucun cas écrire tout ce qu'une API pourrait faire, implémenter de la logique métier etc. 
 
-Le plus compliqué est de réussir à écrire le moins de logique possible afin de rendre notre application fonctionnel, pour les démos ou simplement pour pouvoir développer sereinement. 
+Le plus compliqué est de réussir à écrire le moins de logique possible afin de rendre notre application fonctionnel, pour les démos ou simplement pour pouvoir développer sereinement. Trouver le bon compromis.
 
 Un exemple simple, est par exemple de rendre mutable les données récupérés en `get` si elles peuvent être modifié par un `put` : 
 
@@ -532,15 +410,17 @@ import getQuote from './fixtures/getQuote.json';
 let quote = getQuote;
 
 export const handlers = [
-	rest.get(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
-		res(ctx.status(200), ctx.json(quote)),
+	http.get(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) =>
+		HttpResponse.json(ctx.json(quote)),
 	),
-	rest.put(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) => {
+	http.put(`${conf.apiEbusinessUrl}/insurance-quotes/:quoteId`, (req, res, ctx) => {
 		quote = JSON.parse(req.body).request;
-		return res(ctx.status(200), ctx.json(quote));
+		return HttpResponse.json(ctx.json(quote));
 	})
 ]
 ```
+
+Pour certains besoin très complexe, nous avons égalemen mis en place une méthode d'enrichissement, qui s'enclenche sur certains handler, qui va lire les données d'entrée pour venir modifier certaines valeurs de sortie et exécuter certaines méthodes.
 
 ## Développer avant l'API
 ## Cohabitation avec l'authentification
