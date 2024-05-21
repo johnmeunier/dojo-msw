@@ -14,28 +14,7 @@ const Gender = ({ gender }) => {
 export const LOTR = () => {
   const [people, setPeople] = useState([]);
   const [error, setError] = useState(false);
-  const retrievePeople1 = () => {
-    fetch("https://the-one-api.dev/v2/character", {
-      headers: new Headers({
-        Authorization: `Bearer ${API_KEY}`,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("fail");
-        } else {
-          res.json().then((data) => setPeople(data.docs));
-        }
-      })
-      .catch((e) => {
-        console.log(e);
-        setError(true);
-      });
-  };
 
-  useEffect(() => {
-    retrievePeople1();
-  }, []);
   return (
     <div className="App">
       <h1>LOTR characters</h1>
@@ -55,4 +34,4 @@ export const LOTR = () => {
       )}
     </div>
   );
-}
+};

@@ -1,5 +1,0 @@
-// src/mocks/browser.js
-import { setupWorker } from "msw/browser";
-import { handlers } from "./handlers";
-
-export const worker = setupWorker(handlers.getCharacter200, handlers.getPokemon200Hateoas);
